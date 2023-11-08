@@ -1,2 +1,2 @@
 # LSTM-AI-Stocks
-AI for Stock Trading
+AI for Stock Trading #GetRichQuick
