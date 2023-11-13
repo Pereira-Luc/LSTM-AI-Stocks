@@ -20,19 +20,14 @@ if __name__ == "__main__":
         data = get_data(path_apple, chunk_size=chunk_size, start_row=1)
         all_data.append(data)
     else:
-        while True:
-            if counter == 200000:
-                break
-            data = get_data(path_apple, chunk_size=chunk_size, start_row=start_row)
-            all_data.append(data)
-            # print("Rank: ", rank, "Start Row: ", start_row, "End Row: ", chunk_size * rank + chunk_size,
-            #        "Next Start Row: ", chunk_size * counter * rank + size * chunk_size + 1, "var", start_row , "Counter: ", counter)
-            start_row = chunk_size * counter * rank + size * chunk_size + 1
-            counter += 1
+        all_data.append(get_data_parallel(path_apple, chunk_size, rank, size, start_row, counter))
 
-            if len(data) < chunk_size:
-                print('Stopping Rank: ', rank, 'Counter: ', counter)
-                break
+    all_data = comm.gather(all_data, root=0)
 
-    #all_data = comm.gather(all_data, root=0)
-    # print(all_data)
+    if rank == 0:
+        print(len(all_data))
+        # Sort the data by the first element in each row which is the date
+        #all_data = sorted(all_data, key=lambda x: x[0][0])
+        #print(all_data)
+        pass
+
