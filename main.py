@@ -8,26 +8,18 @@ if __name__ == "__main__":
     rank = comm.Get_rank()
     size = comm.Get_size()
 
-    path_apple = "data/AAPL.csv"
+    # path_apple = "data/AAPL_index.csv"
+    # path_TSLA = "data/TSLA_index.csv"
 
-    all_data = []
+    chunk_size = 200000
+    file_path = "data/AAPL_index.csv"
+    get_data_parallel_sorted(file_path, chunk_size)
 
-    chunk_size = 100000
-    start_row = rank * chunk_size + 1
-    counter = 1
+    # calculate the time
+    start_time = MPI.Wtime()
+    data = get_data(file_path)
+    end_time = MPI.Wtime()
 
-    if rank == 0:
-        data = get_data(path_apple, chunk_size=chunk_size, start_row=1)
-        all_data.append(data)
-    else:
-        all_data.append(get_data_parallel(path_apple, chunk_size, rank, size, start_row, counter))
+    #print(data[2:])
 
-    all_data = comm.gather(all_data, root=0)
-
-    if rank == 0:
-        print(len(all_data))
-        # Sort the data by the first element in each row which is the date
-        #all_data = sorted(all_data, key=lambda x: x[0][0])
-        #print(all_data)
-        pass
-
+    #print("Time taken: ", end_time - start_time)
