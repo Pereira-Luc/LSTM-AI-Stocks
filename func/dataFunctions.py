@@ -34,31 +34,6 @@ def get_data(file_name, start_row=0, chunk_size=-1, custom_header=None):
 """
     This function is used to get the data in parallel
     The data is split into chunks and each process gets a chunk of the data
-    This function is used to change the data in parallel like normalizing the data
-    or adding new columns or removing columns
-
-    Don't remove Index column as it is used to sort the data
-
-    Args:
-        dataFile (str): Path to the input CSV file.
-        chunk_size (int): Number of rows to be read at a time.
-        rank (int): Rank of the process.
-        size (int): Total number of processes.
-        start_row (int): Row number from where the data reading should start.
-        counter (int): Counter for the number of iterations.
-
-    Returns:
-        data (DataFrame): Newly modified data
-"""
-def data_manipulations_during_parallel_exec(data_chunk):
-    #Whatever Modifications you want to do to the data
-    return data_chunk
-
-
-
-"""
-    This function is used to get the data in parallel
-    The data is split into chunks and each process gets a chunk of the data
     This function runs as long as there is data to be read
 
     Args:
@@ -124,6 +99,28 @@ def enumerate_data(file_name, output_name):
         file.writelines(lines)
 
 
+"""
+    This function is used to get the data in parallel
+    The data is split into chunks and each process gets a chunk of the data
+    This function is used to change the data in parallel like normalizing the data
+    or adding new columns or removing columns
+
+    Don't remove Index column as it is used to sort the data
+
+    Args:
+        dataFile (str): Path to the input CSV file.
+        chunk_size (int): Number of rows to be read at a time.
+        rank (int): Rank of the process.
+        size (int): Total number of processes.
+        start_row (int): Row number from where the data reading should start.
+        counter (int): Counter for the number of iterations.
+
+    Returns:
+        data (DataFrame): Newly modified data
+"""
+def data_manipulations_during_parallel_exec(data_chunk):
+    #Whatever Modifications you want to do to the data
+    return data_chunk
 
 """
     This function is used to get the data in parallel
