@@ -57,7 +57,7 @@ def get_data_parallel(dataFile, chunk_size, rank, size, start_row=1, counter=1):
         chunk_of_data = get_data(dataFile, start_row, chunk_size,custom_header)
         if (not chunk_of_data.empty):
             # Whatever Modifications you want to do to the data
-            chunk_of_data = data_manipulations_durring_parallel_exec(chunk_of_data)
+            chunk_of_data = data_manipulations_during_parallel_exec(chunk_of_data)
             #data = pd.concat([data, chunk_of_data])
             chunk_chache.append(chunk_of_data) 
 
