@@ -136,7 +136,7 @@ def data_manipulations_during_parallel_exec(data_chunk):
 def get_data_parallel_sorted(dataFile, chunk_size):
         all_data_chunks = pd.DataFrame()
 
-        start_time = MPI.Wtime()
+        #start_time = MPI.Wtime()
 
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
@@ -158,9 +158,54 @@ def get_data_parallel_sorted(dataFile, chunk_size):
             # Sort the data according to the index
             all_data = all_data.sort_values(by=['Index'])
 
-            stop_time = MPI.Wtime()
+            #stop_time = MPI.Wtime()
 
             print("Data: ", len(all_data))
-            print("Data: ", all_data[:2])
+            #print("Data: ", all_data[:2])
 
-            print("Time: ", stop_time - start_time)
+            #print("Time: ", stop_time - start_time)
+
+
+"""
+    Function to read multiple files in parallel
+
+    Args:
+        file_paths (list): List of paths to the input files.
+
+    Returns:
+        data (DataFrame): Data read from the CSV file.
+"""
+def read_multiple_files_parallel(file_paths):
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    size = comm.Get_size()
+
+    rank_counter = 0
+    file_counter = 0
+    data_list = []
+
+    while file_counter  < len(file_paths):
+        # print("Rank: ", rank, "File: ", file_paths[file_counter] + " Rank Counter: ", rank_counter , " File Counter: ", file_counter)
+        # Giving each process a file to read
+        if rank == rank_counter:
+            print("Rank: ", rank, "File: ", file_paths[file_counter])
+            data = get_data(file_paths[file_counter])
+            # Whatever Modifications you want to do to the data
+            data_list.append(data_manipulations_during_parallel_exec(data))
+        
+        file_counter += 1
+        # Changing the rank of the process and file
+        rank_counter += 1
+        # In the case there are more files than processes
+        # We need to reset the counter
+        rank_counter = rank_counter % size 
+
+        if file_counter < size:
+            for i in range(file_counter, size):
+                if rank == i: data = pd.DataFrame()
+
+    # Gather all chunks at the root process
+    all_data_chunks = comm.gather(data_list, root=0)
+
+
+    return all_data_chunks
