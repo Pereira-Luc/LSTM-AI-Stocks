@@ -19,16 +19,16 @@ def get_data(file_name, start_row=0, chunk_size=-1, custom_header=None):
     try:
         if chunk_size == -1:
             return pd.read_csv(file_name)
-        
+
 
         if custom_header is not None:
             data = pd.read_csv(file_name, skiprows=start_row, nrows=chunk_size,header=None, names=custom_header)
         else:
-            data = pd.read_csv(file_name, skiprows=start_row, nrows=chunk_size)  
+            data = pd.read_csv(file_name, skiprows=start_row, nrows=chunk_size)
     except:
         print("Error reading file")
         return pd.DataFrame()
-    
+
     return data
 
 """
@@ -46,7 +46,7 @@ def get_data(file_name, start_row=0, chunk_size=-1, custom_header=None):
 
     Returns:
         data (DataFrame): Data read from the CSV file.
-"""  
+"""
 def get_data_parallel(dataFile, chunk_size, rank, size, start_row=1, counter=1):
     custom_header = ['Index','Date','open','high','low','close','tick_volume','spread','real_volume']
     data = pd.DataFrame()
@@ -59,7 +59,7 @@ def get_data_parallel(dataFile, chunk_size, rank, size, start_row=1, counter=1):
             # Whatever Modifications you want to do to the data
             chunk_of_data = data_manipulations_during_parallel_exec(chunk_of_data)
             #data = pd.concat([data, chunk_of_data])
-            chunk_chache.append(chunk_of_data) 
+            chunk_chache.append(chunk_of_data)
 
         # Update the start_row for the next iteration
         start_row += chunk_size * size
@@ -67,12 +67,11 @@ def get_data_parallel(dataFile, chunk_size, rank, size, start_row=1, counter=1):
         counter += 1
 
         if len(chunk_of_data) < chunk_size:
-            print('Stopping Rank: ', rank, 'Iterations: ', counter)
+            #print('Stopping Rank: ', rank, 'Iterations: ', counter)
             break
+    if (chunk_chache != []):
+        data = pd.concat(chunk_chache, ignore_index=True)
 
-
-    data = pd.concat(chunk_chache, ignore_index=True)
-    
     return data
 
 
@@ -136,7 +135,7 @@ def data_manipulations_during_parallel_exec(data_chunk):
 """
 def get_data_parallel_sorted(dataFile, chunk_size):
         all_data_chunks = pd.DataFrame()
-    
+
         start_time = MPI.Wtime()
 
         comm = MPI.COMM_WORLD
@@ -145,15 +144,15 @@ def get_data_parallel_sorted(dataFile, chunk_size):
 
         start_row = rank * chunk_size + 1
 
-        print("Rank: ", rank, "Start Row: ", start_row, "End Row: ", chunk_size * rank + chunk_size)
+        #print("Rank: ", rank, "Start Row: ", start_row, "End Row: ", chunk_size * rank + chunk_size)
         data_chunk = get_data_parallel(dataFile, chunk_size, rank, size, start_row)
         # Gather all chunks at the root process
         all_data_chunks = comm.gather(data_chunk, root=0)
-        
+
         if rank == 0:
             print("Data all gathered at root process: ", rank)
 
-            # combine all the data frames inside the 
+            # combine all the data frames inside the
             all_data = pd.concat(all_data_chunks)
 
             # Sort the data according to the index
