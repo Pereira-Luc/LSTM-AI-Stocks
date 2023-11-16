@@ -8,18 +8,9 @@ if __name__ == "__main__":
     rank = comm.Get_rank()
     size = comm.Get_size()
 
-    # path_apple = "data/AAPL_index.csv"
-    # path_TSLA = "data/TSLA_index.csv"
+    path_apple = "data/AAPL_index.csv"
+    path_TSLA = "data/TSLA_index.csv"
 
-    chunk_size = 200000
-    file_path = "data/AAPL_index.csv"
-    get_data_parallel_sorted(file_path, chunk_size)
+    file_paths = [path_apple, path_TSLA,path_apple, path_TSLA,path_apple, path_TSLA]
+    read_multiple_files_parallel(file_paths)
 
-    # calculate the time
-    start_time = MPI.Wtime()
-    data = get_data(file_path)
-    end_time = MPI.Wtime()
-
-    #print(data[2:])
-
-    #print("Time taken: ", end_time - start_time)
