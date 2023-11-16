@@ -176,6 +176,13 @@ def get_data_parallel_sorted(dataFile, chunk_size):
 
     Returns:
         data (DataFrame): Data read from the CSV file.
+    Format of the data returned:
+        [
+            [dataframe1, dataframe2, dataframe3],
+            [dataframe1, dataframe2, dataframe3],
+            [dataframe1, dataframe2, dataframe3],
+            [dataframe1, dataframe2, dataframe3]
+        ]
 """
 def read_multiple_files_parallel(file_paths):
     comm = MPI.COMM_WORLD
