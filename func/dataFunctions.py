@@ -169,6 +169,8 @@ def get_data_parallel_sorted(dataFile, chunk_size):
 """
     Function to read multiple files in parallel
 
+    Also no need to use enumerate_data function as the data is sorted inside the files itself
+
     Args:
         file_paths (list): List of paths to the input files.
 
@@ -207,5 +209,22 @@ def read_multiple_files_parallel(file_paths):
     # Gather all chunks at the root process
     all_data_chunks = comm.gather(data_list, root=0)
 
-
     return all_data_chunks
+
+
+"""
+This function is used to split data into train and test data
+
+Args:
+    data (DataFrame): Data read from the CSV file.
+    train_percentage (float): Percentage of data to be used for training.
+
+    Returns:
+        train_data (DataFrame): Training data.
+        test_data (DataFrame): Testing data.
+"""
+def get_train_test_data(data, train_percentage=0.8):
+    train_data = data[:int(len(data) * train_percentage)]
+    test_data = data[int(len(data) * train_percentage):]
+
+    return train_data, test_data
