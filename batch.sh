@@ -14,3 +14,5 @@ python3 -m pip install --no-cache --user pandas
 
 #python3 main.py
 mpirun -np $SLURM_NTASKS python3 main.py 
+
+#Batch script contains DOS line breaks -> dos2unix batch.sh
