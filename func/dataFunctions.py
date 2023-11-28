@@ -1,6 +1,12 @@
 import numba as nb
 from mpi4py import MPI
 import pandas as pd
+import torch
+from torch.utils.data import DataLoader, Dataset
+from copy import deepcopy as dc
+from sklearn.preprocessing import MinMaxScaler
+import numpy as np
+from classes.StockDataset import StockDataset
 
 """
     This function is used to get the data from the CSV file
@@ -18,7 +24,7 @@ import pandas as pd
 def get_data(file_name, start_row=0, chunk_size=-1, custom_header=None):
     try:
         if chunk_size == -1:
-            return pd.read_csv(file_name)
+            return pd.read_csv(file_name, header=0)
 
 
         if custom_header is not None:
@@ -118,8 +124,15 @@ def enumerate_data(file_name, output_name):
         data (DataFrame): Newly modified data
 """
 def data_manipulations_during_parallel_exec(data_chunk):
-    #Whatever Modifications you want to do to the data
-    return data_chunk
+    # Normalizing the data using min-max normalization MinMaxScaler
+
+    data_chunk['close'] = MinMaxScaler().fit_transform(data_chunk[['close']])
+
+    # Convert the date column to datetime format
+    data_chunk['Date'] = pd.to_datetime(data_chunk['Date'])
+
+    # only return the close and date columns
+    return data_chunk[['Date', 'close']]
 
 """
     This function is used to get the data in parallel
@@ -225,13 +238,137 @@ This function is used to split data into train and test data
 Args:
     data (DataFrame): Data read from the CSV file.
     train_percentage (float): Percentage of data to be used for training.
+    validation_percentage (float): Percentage of data to be used for validation.
+    example: 10% validation is actually 10% of the remaining 80% of the training data
 
     Returns:
         train_data (DataFrame): Training data.
         test_data (DataFrame): Testing data.
+        validation_data (DataFrame): Validation data.
 """
-def get_train_test_data(data, train_percentage=0.8):
-    train_data = data[:int(len(data) * train_percentage)]
-    test_data = data[int(len(data) * train_percentage):]
+def get_split_data(data, train_percentage=0.8, validation_percentage=0.1, batch_size=64):
+    # Splitting the data into train and test
+    train_data = data.sample(frac=train_percentage, random_state=0)
+    test_data = data.drop(train_data.index)
 
-    return train_data, test_data
+    # Splitting the train data into train and validation
+    validation_data = train_data.sample(frac=validation_percentage, random_state=0)
+    train_data = train_data.drop(validation_data.index)
+
+    print("First 5 rows of train data: ", train_data[:5])
+    print("First 5 rows of validation data: ", validation_data[:5])
+    print("First 5 rows of test data: ", test_data[:5])
+
+    # Creating instances of StockDataset
+    train_dataset = StockDataset(train_data)
+    validation_dataset = StockDataset(validation_data)
+    test_dataset = StockDataset(test_data)
+
+    # Also converting the data into pytorch DataLoader
+    train_loader = DataLoader(train_dataset, batch_size, shuffle=False)
+    validation_loader = DataLoader(validation_dataset, batch_size, shuffle=False)
+    test_loader = DataLoader(test_dataset, batch_size, shuffle=False)
+
+    return train_loader, validation_loader, test_loader
+
+
+
+"""
+    This function is used to create a sequence of data for the LSTM model to use for prediction
+
+    Args:
+        data (DataFrame): Data read from the CSV file.
+        seq_length (int): Length of the sequence meaning how many days of data to be used for prediction.
+
+    Returns:
+        seq_data (numpy): Data with sequence.
+""" 
+def create_sequence(data, seq_length):
+    # data is not devided into days but into minutes
+    # so we need to check if the data is for the same day or not
+    # if it is for the same day then we can use it for prediction
+    df = dc(data)
+    df['Date'] = pd.to_datetime(df['Date'])
+
+    df.set_index('Date', inplace=True)
+
+    for i in range(1, seq_length + 1):
+        df['close - ' + str(i)] = df['close'].shift(i)
+
+    df.dropna(inplace=True)
+
+    return df.to_numpy()
+    
+
+"""
+    This Function return data to be used for prediction by the LSTM model
+
+    Args:
+        data (DataFrame): Data read from the CSV file.
+        go_back_days (int): Number of days to go back for prediction.
+
+    Returns:
+        train_data (StockDataset): Training data.
+        test_data (StockDataset): Testing data.
+        X_train (Tensor): Training data.
+        y_train (Tensor): Training data.
+        X_test (Tensor): Testing data.
+        y_test (Tensor): Testing data.
+"""
+def get_data_for_prediction(data, historical_information = 7, train_percentage=0.8):
+
+    # print("Apple Data: ", apple_data[:2])
+    seq_data = create_sequence(data, historical_information)
+
+    # print('len(seq_apple_data): ', len(seq_apple_data))
+    # print("Seq Apple Data: ", seq_apple_data[:2])
+
+    X = seq_data[:, 1:]
+    X = dc(np.flip(X, axis=1))
+    y = seq_data[:, 0]
+
+    # print("X: ", X.shape)
+    # print("y: ", y.shape)
+
+    # Split the data into training and testing sets
+    train_size = int(len(X) * train_percentage)
+
+    X_train = X[:train_size]
+    X_test = X[train_size:]
+
+    y_train = y[:train_size]
+    y_test = y[train_size:]
+
+    # convert data to tensors
+    X_train = torch.tensor(X_train).float()
+    y_train = torch.tensor(y_train).float()
+
+    X_test = torch.tensor(X_test).float()
+    y_test = torch.tensor(y_test).float()
+
+    # print('Convert data to tensors')
+
+    # print("X_train: ", X_train.shape)
+    # print("y_train: ", y_train.shape)
+    # print("X_test: ", X_test.shape)
+    # print("y_test: ", y_test.shape)
+
+    # add an additional dimension
+    X_train = X_train.reshape(-1, historical_information, 1)
+    X_test = X_test.reshape(-1, historical_information,1)
+
+    y_train = y_train.reshape(-1, 1)
+    y_test = y_test.reshape(-1, 1)
+
+    # print('Add an additional dimension')
+
+    # print("X_train: ", X_train.shape)
+    # print("y_train: ", y_train.shape)
+    # print("X_test: ", X_test.shape)
+    # print("y_test: ", y_test.shape)
+
+    # convert to StockDataset
+    train_data = StockDataset(X_train, y_train)
+    test_data = StockDataset(X_test, y_test)
+
+    return train_data, test_data, X_train, y_train, X_test, y_test
