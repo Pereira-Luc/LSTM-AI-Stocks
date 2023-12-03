@@ -65,7 +65,7 @@ def predict_in_batches(model, dataset, batch_size):
 
 def start_lstm(train_loader, test_loader, learning_rate = 0.001, num_epochs = 10, loss_function = nn.MSELoss(),batch_size = 16):
     # create the model
-    model = LSTM(input_size=1, hidden_size=4, num_layers=1, output_size=1).to(device)
+    model = LSTM(input_size=1, hidden_size=4, num_layers=2, output_size=1).to(device)
     model
 
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
@@ -77,5 +77,31 @@ def start_lstm(train_loader, test_loader, learning_rate = 0.001, num_epochs = 10
     return model
 
 
+def test_model(model, test_loader, loss_function, scaler, historical_information):
+    predictions = predict_in_batches(model, test_loader, batch_size=16)
+    return predictions
 
 
+def iterative_prediction(model, starting_sequance, num_predictions = 30):
+    model.eval()
+    current_sequence = starting_sequance.clone().detach()
+    predictions = []
+
+    with torch.no_grad():
+        for _ in range(num_predictions):
+            # Predict the next step
+            prediction = predict_in_batches(model, current_sequence, batch_size=16)
+
+            # print the prediction
+            print(prediction)
+
+            prediction_tensor = torch.from_numpy(prediction[0]).type_as(current_sequence).to(device)
+
+            # Update the sequence with the new prediction
+            current_sequence = torch.roll(current_sequence, -1, 1)
+            current_sequence[:, -1, :] = prediction_tensor.squeeze(0)
+
+            # Store the prediction
+            predictions.append(prediction_tensor.cpu())
+
+    return torch.cat(predictions, dim=0).numpy()

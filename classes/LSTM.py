@@ -3,6 +3,18 @@ import torch.nn as nn
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+"""
+    This function trains the model for one epoch
+
+    :param epoch: The epoch number
+    :param optimizer: The optimizer to use
+    :param loss_function: The loss function to use
+    :param model: The model to train
+    :param train_loader: The train loader
+
+"""
+    
+
 class LSTM(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers, output_size):
         super().__init__()
