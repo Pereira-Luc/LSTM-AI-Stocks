@@ -113,7 +113,7 @@ def predict_in_batches(model, dataset, batch_size, device):
 """
 def start_lstm(train_loader, test_loader, learning_rate = 0.001, num_epochs = 10, loss_function = nn.MSELoss(),batch_size = 16, device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')):
     # create the model
-    model = LSTM(input_size=1, hidden_size=6, num_layers=2, output_size=1).to(device)
+    model = LSTM(input_size=1, hidden_size=6, num_layers=2, output_size=1, device = device).to(device)
     model
 
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)

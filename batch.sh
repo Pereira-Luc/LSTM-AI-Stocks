@@ -1,9 +1,9 @@
 #!/bin/bash -l
 #SBATCH -N 1
-#SBATCH --ntasks-per-node=1
+#SBATCH --ntasks-per-node=20
 ##SBATCH -p batch
 
-#SBATCH -G 1
+#SBATCH -G 2
 #SBATCH --time=01:00:00
 #SBATCH -p gpu
 
@@ -20,6 +20,6 @@ python3 -m pip install --no-cache --user pandas
 python3 -m pip install --user torch==1.10.1+cu111 torchvision==0.11.2+cu111 torchaudio==0.10.1 -f https://download.pytorch.org/whl/cu111/torch_stable.html
 
 #python3 main.py
-mpirun -np $SLURM_NTASKS python3 main.py 
+mpirun -np 1 python3 main.py 
 
 #Batch script contains DOS line breaks -> dos2unix batch.sh
