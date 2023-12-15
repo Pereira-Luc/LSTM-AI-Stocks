@@ -7,6 +7,7 @@ from copy import deepcopy as dc
 from sklearn.preprocessing import MinMaxScaler
 import numpy as np
 from classes.StockDataset import StockDataset
+from mpi4py.futures import MPIPoolExecutor as Executor
 
 """
     This function is used to get the data from the CSV file
@@ -105,35 +106,45 @@ def enumerate_data(file_name, output_name):
 
 
 """
-    This function is used to get the data in parallel
-    The data is split into chunks and each process gets a chunk of the data
-    This function is used to change the data in parallel like normalizing the data
-    or adding new columns or removing columns
+    This function is to normalize the data using any scaler given
 
     Don't remove Index column as it is used to sort the data
 
     Args:
-        dataFile (str): Path to the input CSV file.
-        chunk_size (int): Number of rows to be read at a time.
-        rank (int): Rank of the process.
-        size (int): Total number of processes.
-        start_row (int): Row number from where the data reading should start.
-        counter (int): Counter for the number of iterations.
-
+        data (DataFrame): Data read from the CSV file.
+        scaler (MinMaxScaler): Scaler to be used for normalizing the data.
     Returns:
         data (DataFrame): Newly modified data
 """
-def data_manipulations_during_parallel_exec(data_chunk):
+def data_manipulations_during_parallel_exec(data_chunk, scaler=MinMaxScaler()):
     # Normalizing the data using min-max normalization MinMaxScaler
 
-    data_chunk['close'] = MinMaxScaler().fit_transform(data_chunk[['close']])
+    data_chunk['close'] = scaler.fit_transform(data_chunk[['close']])
 
     # Convert the date column to datetime format
     data_chunk['Date'] = pd.to_datetime(data_chunk['Date'])
 
     # only return the close and date columns
-    return data_chunk[['Date', 'close']]
+    return data_chunk[['Date', 'close']], scaler
 
+"""
+    This functions reverses the normalization done by the scaler
+
+    Args:
+        data (DataFrame): Data read from the CSV file.
+        scaler (MinMaxScaler): Scaler to be used for normalizing the data.    
+
+    Returns:
+        data (DataFrame): Newly modified data
+
+"""
+def reverse_normalization(data, historical_information, scaler=MinMaxScaler()):
+    d = np.zeros((data.shape[0], historical_information + 1))
+    x = data.flatten()
+    d[:, 0] = x
+    d = scaler.inverse_transform(d)
+    return dc(d[:, 0])
+        
 """
     This function is used to get the data in parallel
     The data is split into chunks and each process gets a chunk of the data
@@ -186,6 +197,7 @@ def get_data_parallel_sorted(dataFile, chunk_size):
 
     Args:
         file_paths (list): List of paths to the input files.
+        scaler (MinMaxScaler): Scaler to be used for normalizing the data.
 
     Returns:
         data (DataFrame): Data read from the CSV file.
@@ -197,7 +209,7 @@ def get_data_parallel_sorted(dataFile, chunk_size):
             [dataframe1, dataframe2, dataframe3]
         ]
 """
-def read_multiple_files_parallel(file_paths):
+def read_multiple_files_parallel(file_paths, scaler=MinMaxScaler()):
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
@@ -213,7 +225,8 @@ def read_multiple_files_parallel(file_paths):
             print("Rank: ", rank, "File: ", file_paths[file_counter])
             data = get_data(file_paths[file_counter])
             # Whatever Modifications you want to do to the data
-            data_list.append(data_manipulations_during_parallel_exec(data))
+            #data_list.append(data_manipulations_during_parallel_exec(data,scaler))
+            data_list.append(data)
         
         file_counter += 1
         # Changing the rank of the process and file
@@ -230,6 +243,27 @@ def read_multiple_files_parallel(file_paths):
     all_data_chunks = comm.gather(data_list, root=0)
 
     return all_data_chunks
+
+def read_data_in_parallel_future(file_paths):
+    # read multiple files using executor specify 4 cores
+    with Executor(max_workers=8) as executor:
+        data_list_array_executor = executor.map(get_data, file_paths)
+        data_list_array_executor_list = list(data_list_array_executor)
+        results = executor.map(data_manipulations_during_parallel_exec, data_list_array_executor_list)
+
+        data_list_array = []
+        list_of_scalers = []
+
+        # Unpack each tuple from the results
+        for data_chunk, scaler in results:
+            data_list_array.append(data_chunk)
+            list_of_scalers.append(scaler)
+            print('data length', len(data_list_array))
+
+        for data in data_list_array:
+            print('data shape', data.shape)
+
+    return data_list_array, list_of_scalers
 
 
 """
@@ -271,7 +305,32 @@ def get_split_data(data, train_percentage=0.8, validation_percentage=0.1, batch_
 
     return train_loader, validation_loader, test_loader
 
+"""
+    This function prepares data to be used for prediction by the LSTM model
 
+    Args:
+        data (DataFrame): Data read from the CSV file.
+        historical_information (int): Number of days/min to go back for prediction.
+    Returns:
+        data (StockDataset): Data read from the CSV file.
+"""
+def prepare_data_for_prediction(data, historical_information = 7):
+    # Create the sequence
+    seq_data = create_sequence(data, historical_information)
+
+    X = seq_data[:, 1:]
+    X = dc(np.flip(X, axis=1))
+    y = seq_data[:, 0]
+
+    # convert data to tensors
+    X = torch.tensor(seq_data[:, 1:]).float()
+    y = torch.tensor(seq_data[:, 0]).float()
+
+    # add an additional dimension
+    X = X.reshape(-1, historical_information, 1)
+    y = y.reshape(-1, 1)
+
+    return X
 
 """
     This function is used to create a sequence of data for the LSTM model to use for prediction
@@ -284,6 +343,8 @@ def get_split_data(data, train_percentage=0.8, validation_percentage=0.1, batch_
         seq_data (numpy): Data with sequence.
 """ 
 def create_sequence(data, seq_length):
+    print('Data shape: ', data.shape)
+    print('Sequence length: ', seq_length)
     # data is not devided into days but into minutes
     # so we need to check if the data is for the same day or not
     # if it is for the same day then we can use it for prediction
@@ -291,11 +352,14 @@ def create_sequence(data, seq_length):
     df['Date'] = pd.to_datetime(df['Date'])
 
     df.set_index('Date', inplace=True)
+    print('Data first 5 rows: ', df[:5])
 
     for i in range(1, seq_length + 1):
         df['close - ' + str(i)] = df['close'].shift(i)
 
     df.dropna(inplace=True)
+
+    print('Data first 5 rows after adding sequence: ', df[:5])
 
     return df.to_numpy()
     
@@ -361,7 +425,7 @@ def get_data_for_prediction(data, historical_information = 7, train_percentage=0
     y_test = y_test.reshape(-1, 1)
 
     # print('Add an additional dimension')
-
+    
     # print("X_train: ", X_train.shape)
     # print("y_train: ", y_train.shape)
     # print("X_test: ", X_test.shape)
@@ -372,3 +436,5 @@ def get_data_for_prediction(data, historical_information = 7, train_percentage=0
     test_data = StockDataset(X_test, y_test)
 
     return train_data, test_data, X_train, y_train, X_test, y_test
+
+
