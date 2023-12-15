@@ -7,6 +7,7 @@ from copy import deepcopy as dc
 from sklearn.preprocessing import MinMaxScaler
 import numpy as np
 from classes.StockDataset import StockDataset
+from mpi4py.futures import MPIPoolExecutor as Executor
 
 """
     This function is used to get the data from the CSV file
@@ -124,7 +125,7 @@ def data_manipulations_during_parallel_exec(data_chunk, scaler=MinMaxScaler()):
     data_chunk['Date'] = pd.to_datetime(data_chunk['Date'])
 
     # only return the close and date columns
-    return data_chunk[['Date', 'close']]
+    return data_chunk[['Date', 'close']], scaler
 
 """
     This functions reverses the normalization done by the scaler
@@ -224,7 +225,8 @@ def read_multiple_files_parallel(file_paths, scaler=MinMaxScaler()):
             print("Rank: ", rank, "File: ", file_paths[file_counter])
             data = get_data(file_paths[file_counter])
             # Whatever Modifications you want to do to the data
-            data_list.append(data_manipulations_during_parallel_exec(data,scaler))
+            #data_list.append(data_manipulations_during_parallel_exec(data,scaler))
+            data_list.append(data)
         
         file_counter += 1
         # Changing the rank of the process and file
@@ -241,6 +243,27 @@ def read_multiple_files_parallel(file_paths, scaler=MinMaxScaler()):
     all_data_chunks = comm.gather(data_list, root=0)
 
     return all_data_chunks
+
+def read_data_in_parallel_future(file_paths):
+    # read multiple files using executor specify 4 cores
+    with Executor(max_workers=8) as executor:
+        data_list_array_executor = executor.map(get_data, file_paths)
+        data_list_array_executor_list = list(data_list_array_executor)
+        results = executor.map(data_manipulations_during_parallel_exec, data_list_array_executor_list)
+
+        data_list_array = []
+        list_of_scalers = []
+
+        # Unpack each tuple from the results
+        for data_chunk, scaler in results:
+            data_list_array.append(data_chunk)
+            list_of_scalers.append(scaler)
+            print('data length', len(data_list_array))
+
+        for data in data_list_array:
+            print('data shape', data.shape)
+
+    return data_list_array, list_of_scalers
 
 
 """
@@ -320,6 +343,8 @@ def prepare_data_for_prediction(data, historical_information = 7):
         seq_data (numpy): Data with sequence.
 """ 
 def create_sequence(data, seq_length):
+    print('Data shape: ', data.shape)
+    print('Sequence length: ', seq_length)
     # data is not devided into days but into minutes
     # so we need to check if the data is for the same day or not
     # if it is for the same day then we can use it for prediction
@@ -327,11 +352,14 @@ def create_sequence(data, seq_length):
     df['Date'] = pd.to_datetime(df['Date'])
 
     df.set_index('Date', inplace=True)
+    print('Data first 5 rows: ', df[:5])
 
     for i in range(1, seq_length + 1):
         df['close - ' + str(i)] = df['close'].shift(i)
 
     df.dropna(inplace=True)
+
+    print('Data first 5 rows after adding sequence: ', df[:5])
 
     return df.to_numpy()
     
@@ -397,7 +425,7 @@ def get_data_for_prediction(data, historical_information = 7, train_percentage=0
     y_test = y_test.reshape(-1, 1)
 
     # print('Add an additional dimension')
-
+    
     # print("X_train: ", X_train.shape)
     # print("y_train: ", y_train.shape)
     # print("X_test: ", X_test.shape)
@@ -408,3 +436,5 @@ def get_data_for_prediction(data, historical_information = 7, train_percentage=0
     test_data = StockDataset(X_test, y_test)
 
     return train_data, test_data, X_train, y_train, X_test, y_test
+
+
