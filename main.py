@@ -25,14 +25,16 @@ if __name__ == "__main__":
         #print("It requires CUDA 12.1 to run and torch 2.1.1+cu121 to run.")
 
 
-    path_amzn = "data/AMZN_index.csv"
-    path_apple = "data/AMZN_index.csv"
-    path_neflx = "data/AMZN_index.csv"
+    path_amzn = "data/AMZN.csv"
+    #path_apple = "data/APPL.csv"
+    path_msfx = "data/MSFT.csv"
+    path_tsla = "data/TSLA.csv"
+    path_nflx = "data/NFLX.csv"
 
-    file_paths = [path_apple]
+    file_paths = [path_amzn,path_msfx,path_tsla,path_nflx]
 
     data_list_array, list_of_scalers = read_data_in_parallel_future(file_paths)
-    train_and_save_model_on_data(data_list_array, list_of_scalers)
+    train_and_save_model_on_data(data_list_array, list_of_scalers, num_epochs=30)
 
 
 
