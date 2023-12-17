@@ -8,6 +8,12 @@ def plot_model(model, scaler, X, y, batch_size, device, historical_information):
     predictions = reverse_normalization(predictions, historical_information,scaler)
     y_reversed = reverse_normalization(y, historical_information, scaler)
 
+    # Create a DataFrame comparing the actual and predicted values
+    comparison_df = pd.DataFrame({
+        'Actual Close': y_reversed.flatten(),
+        'Predicted Close': predictions.flatten()
+    })
+
     # plot the predictions
     plt.plot(y_reversed, label='Actual Close')
     plt.plot(predictions, label='Predicted Close')
@@ -16,5 +22,8 @@ def plot_model(model, scaler, X, y, batch_size, device, historical_information):
     plt.ylabel('Close')
     plt.title('Predictions')
     plt.show()
+
+    # Return the comparison DataFrame
+    return comparison_df
 
 
