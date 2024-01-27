@@ -60,7 +60,7 @@ def data_manipulations_during_parallel_exec(data_chunk, scaler=MinMaxScaler()):
     data_chunk['Date'] = pd.to_datetime(data_chunk['Date'])
 
     # only return the close and date columns
-    return data_chunk[['Date', 'close']]
+    return data_chunk[['Date', 'close']], scaler
     # Uncomment this for news
     #return data_chunk[['Date', 'close', 'sentiment_score','intensity_score','type_token_ratio']], scaler
 
@@ -111,8 +111,6 @@ def read_data_in_parallel_future(file_paths):
             list_of_scalers.append(scaler)
             print('data length', len(data_list_array))
 
-        for data in data_list_array:
-            print('data shape', data.shape)
 
     return data_list_array, list_of_scalers
 
@@ -175,9 +173,11 @@ def create_sequence(data, seq_length):
 
     for i in range(1, seq_length + 1):
         df['close - ' + str(i)] = df['close'].shift(i)
-        df['sentiment_score - ' + str(i)] = df['sentiment_score'].shift(i)
-        df['intensity_score - ' + str(i)] = df['intensity_score'].shift(i)
-        df['type_token_ratio - ' + str(i)] = df['type_token_ratio'].shift(i)
+
+        # Uncomment this for news
+        #df['sentiment_score - ' + str(i)] = df['sentiment_score'].shift(i)
+        #df['intensity_score - ' + str(i)] = df['intensity_score'].shift(i)
+        #df['type_token_ratio - ' + str(i)] = df['type_token_ratio'].shift(i)
 
     df.dropna(inplace=True)
 
