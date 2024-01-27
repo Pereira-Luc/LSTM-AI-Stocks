@@ -60,7 +60,9 @@ def data_manipulations_during_parallel_exec(data_chunk, scaler=MinMaxScaler()):
     data_chunk['Date'] = pd.to_datetime(data_chunk['Date'])
 
     # only return the close and date columns
-    return data_chunk[['Date', 'close', 'sentiment_score','intensity_score','type_token_ratio']], scaler
+    return data_chunk[['Date', 'close']]
+    # Uncomment this for news
+    #return data_chunk[['Date', 'close', 'sentiment_score','intensity_score','type_token_ratio']], scaler
 
 """
     This functions reverses the normalization done by the scaler
@@ -203,8 +205,8 @@ def get_data_for_prediction(data, historical_information = 7, train_percentage=0
 
     seq_data = create_sequence(data, historical_information)
 
-    # this is required for the LSTM model since we have 4 features
-    historical_information = historical_information * 4 + 3
+    # this is required for the LSTM model since we have 4 features Uncomment this for news
+    # historical_information = historical_information * 4 + 3
 
     X = seq_data[:, 1:]
     X = dc(np.flip(X, axis=1))
