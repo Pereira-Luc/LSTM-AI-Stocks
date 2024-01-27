@@ -19,10 +19,9 @@ def calculate_ttr(text):
     if len(tokens) == 0: return 0
     return len(set(tokens)) / len(tokens)
 
-# Adjust the path to match where your file is located
 file_names = ['Amazon', 'Apple', 'Tesla_Inc', 'Netflix', 'Microsoft_Corporation']
 for file in file_names:
-  file_path = 'path_to_csv/' + file + '.csv'
+  file_path = 'path_to_csv/' + file + '.csv' # Adjust the path to match where your file is located
   df = pd.read_csv(file_path)   
   headlines = df['Title'].tolist()
   # Check if the DataFrame has the columns, if not, create them with default NaN values
